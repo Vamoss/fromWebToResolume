@@ -1,0 +1,13 @@
+*.obj
+*.tlog
+*.pdb
+*.log
+*.lastbuildstate
+openframeworksLib_debug.lib
+*.cache
+*.db
+*.opendb
+*.ilk
+*.exe
+*.exp
+bin/*.lib
