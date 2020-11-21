@@ -4,6 +4,7 @@
 *.log
 *.lastbuildstate
 openframeworksLib_debug.lib
+openframeworksDebug.a
 *.cache
 *.db
 *.opendb
@@ -11,3 +12,16 @@ openframeworksLib_debug.lib
 *.exe
 *.exp
 bin/*.lib
+
+# xcode user project files
+*.pbxuser
+*.perspectivev3
+xcuserdata
+*.mode1*v3
+
+
+# custom
+process/
+projectGenerator/
+*.app/
+debug/
