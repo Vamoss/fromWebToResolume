@@ -5,6 +5,7 @@
 *.lastbuildstate
 openframeworksLib_debug.lib
 openframeworksDebug.a
+openframeworks.a
 *.cache
 *.db
 *.opendb
@@ -12,6 +13,7 @@ openframeworksDebug.a
 *.exe
 *.exp
 bin/*.lib
+openFrameworksCompiled/
 
 # xcode user project files
 *.pbxuser

@@ -1,136 +1,121 @@
 #include "ofApp.h"
 
-const int width = 800;
-const int height = 600;
-
 //--------------------------------------------------------------
 void ofApp::setup(){
-    counter = 0;
-    ofSetCircleResolution(50);
-    
-    //ofBackground(0,0,0);
-    
-    bSmooth = false;
     ofSetWindowTitle("Vamoss - Web to Resolume");
+    ofSetFrameRate(FPS);
     
-    mainOutputSyphonServer.setName("Screen Output");
-    individualTextureSyphonServer.setName("Texture Output");
-
-    mClient.setup();
+    ofDirectory dir("fonts");
+    dir.allowExt("ttf");
+    dir.listDir();
+    for(int i = 0; i < dir.size(); i++){
+        ofTrueTypeFont font;
+        font.load(dir.getPath(i), FONT_SIZE, true, true, true);
+        fonts.push_back(font);
+    }
     
-    //using Syphon app Simple Server, found at http://syphon.v002.info/
-    mClient.set("","Simple Server");
-    
-    tex.allocate(200, 100, GL_RGBA);
-    
-    ofSetFrameRate(60); // if vertical sync is off, we can go a bit fast... this caps the framerate at 60fps.
+    for(int i = 0; i < TOTAL; i++){
+        Transmission t;
+        
+        t.syphonServer = new ofxSyphonServer();
+        t.syphonServer->setName("Texture " + ofToString(i));
+        
+        t.canvas = new ofFbo();
+        t.canvas->allocate(WIDTH, FONT_SIZE*1.5, GL_RGBA);
+        
+        t.x = 0;
+        t.messageWidth = 0;
+        
+        transmissions.push_back(t);
+    }
 }
 
 //--------------------------------------------------------------
 void ofApp::update(){
-    counter = counter + 0.033f;
+    float deltaTime = ofGetLastFrameTime();
+    int randomIndexToAdd = floor(ofRandom(transmissions.size()));
+    for(int k = 0; k < transmissions.size(); k++){
+        Transmission * t = &transmissions[k];
+        
+        if(t->x < -t->messageWidth){
+            t->message.clear();
+            t->posX.clear();
+            
+            if(messages.size() > 0 && k == randomIndexToAdd){
+                //set message
+                string m = *messages[0];
+                messages.erase(messages.begin());
+                
+                for(int i = 0; i < fonts.size(); i++){
+                    vector<ofPath> filled = fonts[i].getStringAsPoints(m, true, true);
+                    vector<ofPath> outilined = fonts[i].getStringAsPoints(m, true, false);
+                    
+                    t->message.push_back(filled);
+                
+                    for(int j = 0; j < t->message[i].size(); j++){
+                        vector<ofPolyline> p = outilined[j].getOutline();
+                        int x = p.size() > 0 ? p[0].getCentroid2D().x : 0;
+                        if(i==0)
+                            t->posX.push_back(x);
+                        t->message[i][j].translate(glm::vec2(-x, 0));
+                    }
+                }
+                t->messageWidth = fonts[0].getStringBoundingBox(m, 0, 0).width;
+                t->x = t->canvas->getWidth();
+            }
+        }
+        
+        t->x -= deltaTime * 100;
+        t->canvas->begin();
+            ofClear(0);
+            if(t->message.size() > 0){
+                for (int i = 0; i < t->message[0].size(); i++) {
+                    int randomFont = floor(ofRandom(t->message.size()));
+                    t->message[randomFont][i].draw(t->x + t->posX[i], t->canvas->getHeight() * 3 / 4);
+                }
+            }
+        t->canvas->end();
+        t->syphonServer->publishTexture(&t->canvas->getTexture());
+    }
 }
 
 //--------------------------------------------------------------
 void ofApp::draw(){
-    
-    // Clear with alpha, so we can capture via syphon and composite elsewhere should we want.
-    glClearColor(0.0, 0.0, 0.0, 0.0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-    //--------------------------- circles
-    //let's draw a circle:
-    ofSetColor(255,130,0);
-    float radius = 50 + 10 * sin(counter);
-    ofFill();        // draw "filled shapes"
-    ofDrawCircle(100,400,radius);
-    
-    // now just an outline
-    ofNoFill();
-    ofSetHexColor(0xCCCCCC);
-    ofDrawCircle(100,400,80);
-    
-    // use the bitMap type
-    // note, this can be slow on some graphics cards
-    // because it is using glDrawPixels which varies in
-    // speed from system to system.  try using ofTrueTypeFont
-    // if this bitMap type slows you down.
-    ofSetHexColor(0x000000);
-    ofDrawBitmapString("circle", 75,500);
-    
-    
-    //--------------------------- rectangles
-    ofFill();
-    for (int i = 0; i < 200; i++){
-        ofSetColor((int)ofRandom(0,255),(int)ofRandom(0,255),(int)ofRandom(0,255));
-        ofDrawRectangle(ofRandom(250,350),ofRandom(350,450),ofRandom(10,20),ofRandom(10,20));
+    int y = 0;
+    for(int i = 0; i < transmissions.size(); i++){
+        Transmission t = transmissions[i];
+        int w = t.canvas->getWidth() * 0.8;
+        int h = t.canvas->getHeight() * 0.8;
+        t.canvas->draw(0, y, w, h);
+        y += h + 10;
     }
-    ofSetHexColor(0x000000);
-    ofDrawBitmapString("rectangles", 275,500);
-    
-    //---------------------------  transparency
-    ofSetHexColor(0x00FF33);
-    ofDrawRectangle(100,150,100,100);
-    // alpha is usually turned off - for speed puposes.  let's turn it on!
-    ofEnableAlphaBlending();
-    ofSetColor(255,0,0,127);   // red, 50% transparent
-    ofDrawRectangle(150,230,100,33);
-    ofSetColor(255,0,0,(int)(counter * 10.0f) % 255);   // red, variable transparent
-    ofDrawRectangle(150,170,100,33);
-    ofDisableAlphaBlending();
-    
-    ofSetHexColor(0x000000);
-    ofDrawBitmapString("transparency", 110,300);
-    
-    //---------------------------  lines
-    // a bunch of red lines, make them smooth if the flag is set
-    
-    if (bSmooth){
-        ofEnableSmoothing();
-    }
-    
-    ofSetHexColor(0xFF0000);
-    for (int i = 0; i < 20; i++){
-        ofDrawLine(300,100 + (i*5),500, 50 + (i*10));
-    }
-    
-    if (bSmooth){
-        ofDisableSmoothing();
-    }
-    
-    ofSetColor(255,255,255);
-    ofDrawBitmapString("lines\npress 's' to toggle smoothness", 300,300);
-    
-    // draw static into our one texture.
-    unsigned char pixels[200*100*4];
-    
-    for (int i = 0; i < 200*100*4; i++)
-    {
-        pixels[i] = (int)(255 * ofRandomuf());
-    }
-    tex.loadData(pixels, 200, 100, GL_RGBA);
-    
-    ofSetColor(255, 255, 255);
-    
-    ofEnableAlphaBlending();
-    
-    tex.draw(50, 50);
-    
-    // Syphon Stuff
-    
-    mClient.draw(50, 50);
-    
-    mainOutputSyphonServer.publishScreen();
-    
-    individualTextureSyphonServer.publishTexture(&tex);
-    
-    ofDrawBitmapString("Note this text is not captured by Syphon since it is drawn after publishing.\nYou can use this to hide your GUI for example.", 150,500);
+}
+
+//--------------------------------------------------------------
+void ofApp::receiveMessage(shared_ptr<string> message) {
+    messages.push_back(message);
 }
 
 
 //--------------------------------------------------------------
 void ofApp::keyPressed  (int key){
-    if (key == 's'){
-        bSmooth = !bSmooth;
+    if(key == 't'){
+        const vector<string> v = {
+            u8"ANTIRRACISTA",
+            u8"VIDAS NEGRAS IMPORTAM",
+            u8"EQUIDADE",
+            u8"MARIELLE PRESENTE",
+            u8"LUTA",
+            u8"DEFENDA O SUS",
+            u8"DITADURA NUNCA MAIS",
+            u8"FORA BOLSONARO",
+            u8"R$89 MIL",
+            u8"COVIDA",
+            u8"FICA BEM",
+            u8"168.687 MORTES"
+        };
+        
+        shared_ptr<string> r = make_shared<string>(v[floor(ofRandom(v.size()))]);
+        receiveMessage(r);
     }
 }
