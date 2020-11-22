@@ -34,16 +34,6 @@ public:
     
     void keyPressed(int key);
     void receiveMessage(shared_ptr<string> message);
-    
-    ofRectangle getBoundingBoxOfPath(ofPath &path) {
-      ofRectangle rect;
-      for (int i=0; i<path.getOutline().size(); i++) {
-        ofRectangle b = path.getOutline().at(i).getBoundingBox();
-        if (i==0) rect = b;
-        else rect.growToInclude(b);
-      }
-      return rect;
-    }
 };
 
 #endif
