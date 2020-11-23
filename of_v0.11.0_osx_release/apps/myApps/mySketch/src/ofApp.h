@@ -5,11 +5,6 @@
 #include "ofMain.h"
 #include "ofxSyphon.h"
 
-#define TOTAL 4
-#define FONT_SIZE 80
-#define FPS 60
-#define WIDTH 800
-
 struct Transmission {
     ofFbo * canvas;
     ofxSyphonServer * syphonServer;
@@ -27,6 +22,9 @@ public:
     void setup();
     void update();
     void draw();
+    void exit();
+    
+    ofXml configXml;
     
     vector<Transmission> transmissions;
     vector<ofTrueTypeFont> fonts;
@@ -34,6 +32,9 @@ public:
     
     void keyPressed(int key);
     void receiveMessage(shared_ptr<string> message);
+    
+    void loadData();
+    void urlResponse(ofHttpResponse & response);
 };
 
 #endif

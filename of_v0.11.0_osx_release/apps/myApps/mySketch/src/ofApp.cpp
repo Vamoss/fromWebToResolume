@@ -3,31 +3,53 @@
 //--------------------------------------------------------------
 void ofApp::setup(){
     ofSetWindowTitle("Vamoss - Web to Resolume");
-    ofSetFrameRate(FPS);
+    
+    ofXml rootXml;
+    if(!rootXml.load("config.xml")){
+        ofLogError() << "Couldn't load file: config.xml";
+    }
+    
+    configXml = rootXml.getChild("ROOT");
+    cout << "FPS........." << configXml.getChild("FPS").getIntValue() << endl;
+    cout << "TOTAL......." << configXml.getChild("TOTAL").getIntValue() << endl;
+    cout << "FONT_SIZE..." << configXml.getChild("FONT_SIZE").getIntValue() << endl;
+    cout << "WIDTH......." << configXml.getChild("WIDTH").getIntValue() << endl;
+    cout << "URL........." << configXml.getChild("URL").getValue() << endl;
+    
+    ofSetFrameRate(configXml.getChild("FPS").getIntValue());
     
     ofDirectory dir("fonts");
     dir.allowExt("ttf");
     dir.listDir();
     for(int i = 0; i < dir.size(); i++){
         ofTrueTypeFont font;
-        font.load(dir.getPath(i), FONT_SIZE, true, true, true);
+        font.load(dir.getPath(i), configXml.getChild("FONT_SIZE").getIntValue(), true, true, true);
         fonts.push_back(font);
     }
     
-    for(int i = 0; i < TOTAL; i++){
+    for(int i = 0; i < configXml.getChild("TOTAL").getIntValue(); i++){
         Transmission t;
         
         t.syphonServer = new ofxSyphonServer();
         t.syphonServer->setName("Texture " + ofToString(i));
         
         t.canvas = new ofFbo();
-        t.canvas->allocate(WIDTH, FONT_SIZE*1.5, GL_RGBA);
+        t.canvas->allocate(configXml.getChild("WIDTH").getIntValue(), configXml.getChild("FONT_SIZE").getIntValue()*1.5, GL_RGBA);
         
         t.x = 0;
         t.messageWidth = 0;
         
         transmissions.push_back(t);
     }
+    
+    ofRegisterURLNotification(this);
+    
+    loadData();
+}
+
+//--------------------------------------------------------------
+void ofApp::exit() {
+    ofUnregisterURLNotification(this);
 }
 
 //--------------------------------------------------------------
@@ -96,6 +118,35 @@ void ofApp::receiveMessage(shared_ptr<string> message) {
     messages.push_back(message);
 }
 
+//--------------------------------------------------------------
+void ofApp::loadData(){
+    ofLoadURLAsync(configXml.getChild("URL").getValue(),"frases");
+}
+
+//--------------------------------------------------------------
+void ofApp::urlResponse(ofHttpResponse & response){
+    if(response.status==200 && response.request.name == "frases"){
+        cout << "loaded " << response.data << endl;
+        ofJson json = ofJson::parse(response.data);
+        for(auto & message: json){
+            if(!message.empty()){
+                receiveMessage(make_shared<string>(message["mensagem"]));
+                
+                struct tm tm;
+                istringstream ss = istringstream((string)message["createdAt"]);
+                ss >> get_time(&tm, "%Y-%M-%dT%%H:%M:%S");
+                //this timestamp is not timezone accurate
+                time_t time = mktime(&tm);
+                
+                cout << "-----" << endl;
+                cout << message["createdAt"] << endl;
+                cout << time << endl;
+            }
+        }
+    }else{
+        cout << response.status << " " << response.error << " for request " << response.request.name << endl;
+    }
+}
 
 //--------------------------------------------------------------
 void ofApp::keyPressed  (int key){
