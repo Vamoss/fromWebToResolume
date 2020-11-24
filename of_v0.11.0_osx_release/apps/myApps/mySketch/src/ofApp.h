@@ -64,6 +64,8 @@ public:
     
     string createdAtStr = "";
     int createdAtMs = 0;
+    float updateInterval;
+    float lastUpdateTime = 0;
     
     vector<int> randomPipe;
 };

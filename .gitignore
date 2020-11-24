@@ -27,3 +27,4 @@ process/
 projectGenerator/
 *.app/
 debug/
+config.xml

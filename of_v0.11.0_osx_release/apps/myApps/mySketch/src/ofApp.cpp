@@ -10,12 +10,13 @@ void ofApp::setup(){
     }
     
     configXml = rootXml.getChild("ROOT");
-    cout << "FPS........." << configXml.getChild("FPS").getIntValue() << endl;
-    cout << "TOTAL......." << configXml.getChild("TOTAL").getIntValue() << endl;
-    cout << "FONT_SIZE..." << configXml.getChild("FONT_SIZE").getIntValue() << endl;
-    cout << "WIDTH......." << configXml.getChild("WIDTH").getIntValue() << endl;
-    cout << "URL_ALL....." << configXml.getChild("URL_ALL").getValue() << endl;
-    cout << "URL_NEW....." << configXml.getChild("URL_NEW").getValue() << endl;
+    cout << "FPS.............." << configXml.getChild("FPS").getIntValue() << endl;
+    cout << "TOTAL............" << configXml.getChild("TOTAL").getIntValue() << endl;
+    cout << "FONT_SIZE........" << configXml.getChild("FONT_SIZE").getIntValue() << endl;
+    cout << "WIDTH............" << configXml.getChild("WIDTH").getIntValue() << endl;
+    cout << "URL_ALL.........." << configXml.getChild("URL_ALL").getValue() << endl;
+    cout << "URL_NEW.........." << configXml.getChild("URL_NEW").getValue() << endl;
+    cout << "UPDATE_INTERVAL.." << configXml.getChild("UPDATE_INTERVAL").getFloatValue() << endl;
     
     ofSetFrameRate(configXml.getChild("FPS").getIntValue());
     
@@ -45,8 +46,7 @@ void ofApp::setup(){
     }
     
     ofRegisterURLNotification(this);
-    
-    loadData();
+    updateInterval = configXml.getChild("UPDATE_INTERVAL").getFloatValue();
 }
 
 //--------------------------------------------------------------
@@ -58,6 +58,11 @@ void ofApp::exit() {
 void ofApp::update(){
     float deltaTime = ofGetLastFrameTime();
     float time = ofGetElapsedTimef();
+    
+    if(time - lastUpdateTime > updateInterval){
+        lastUpdateTime = time;
+        loadData();
+    }
     
     //sort pipe
     if (randomPipe.size() == 0) {
