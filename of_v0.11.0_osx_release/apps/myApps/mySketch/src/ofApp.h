@@ -5,14 +5,40 @@
 #include "ofMain.h"
 #include "ofxSyphon.h"
 
-struct Transmission {
-    ofFbo * canvas;
-    ofxSyphonServer * syphonServer;
-    vector<vector<ofPath>> message;
+struct Content {
+    vector<vector<ofPath>> paths;
     vector<int> posX;
     int messageWidth;
     float x;
     string text;
+    bool inUse;
+    
+    void setup(shared_ptr<string> text, vector<ofTrueTypeFont> * fonts) {
+        this->inUse = false;
+        this->text = *text;
+        this->messageWidth = fonts->at(0).getStringBoundingBox(this->text, 0, 0).width;
+        
+        for(int i = 0; i < fonts->size(); i++){
+            vector<ofPath> filled = fonts->at(i).getStringAsPoints(this->text, true, true);
+            vector<ofPath> outilined = fonts->at(i).getStringAsPoints(this->text, true, false);
+            
+            this->paths.push_back(filled);
+            
+            for(int j = 0; j < this->paths[i].size(); j++){
+                vector<ofPolyline> p = outilined[j].getOutline();
+                int x = p.size() > 0 ? p[0].getCentroid2D().x : 0;
+                if(i==0)
+                    this->posX.push_back(x);
+                this->paths[i][j].translate(glm::vec2(-x, 0));
+            }
+        }
+    }
+};
+
+struct Transmission {
+    ofFbo * canvas;
+    ofxSyphonServer * syphonServer;
+    Content * content;
 };
 
 class ofApp : public ofBaseApp{
@@ -28,13 +54,18 @@ public:
     
     vector<Transmission> transmissions;
     vector<ofTrueTypeFont> fonts;
-    vector<shared_ptr<string>> messages;
+    vector<Content *> contents;
     
     void keyPressed(int key);
     void receiveMessage(shared_ptr<string> message);
     
     void loadData();
     void urlResponse(ofHttpResponse & response);
+    
+    string createdAtStr = "";
+    int createdAtMs = 0;
+    
+    vector<int> randomPipe;
 };
 
 #endif

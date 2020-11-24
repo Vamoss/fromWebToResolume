@@ -14,14 +14,17 @@ void ofApp::setup(){
     cout << "TOTAL......." << configXml.getChild("TOTAL").getIntValue() << endl;
     cout << "FONT_SIZE..." << configXml.getChild("FONT_SIZE").getIntValue() << endl;
     cout << "WIDTH......." << configXml.getChild("WIDTH").getIntValue() << endl;
-    cout << "URL........." << configXml.getChild("URL").getValue() << endl;
+    cout << "URL_ALL....." << configXml.getChild("URL_ALL").getValue() << endl;
+    cout << "URL_NEW....." << configXml.getChild("URL_NEW").getValue() << endl;
     
     ofSetFrameRate(configXml.getChild("FPS").getIntValue());
     
     ofDirectory dir("fonts");
     dir.allowExt("ttf");
     dir.listDir();
+    dir.sort();
     for(int i = 0; i < dir.size(); i++){
+        cout << "Font: " << dir.getPath(i) << endl;
         ofTrueTypeFont font;
         font.load(dir.getPath(i), configXml.getChild("FONT_SIZE").getIntValue(), true, true, true);
         fonts.push_back(font);
@@ -36,8 +39,7 @@ void ofApp::setup(){
         t.canvas = new ofFbo();
         t.canvas->allocate(configXml.getChild("WIDTH").getIntValue(), configXml.getChild("FONT_SIZE").getIntValue()*1.5, GL_RGBA);
         
-        t.x = 0;
-        t.messageWidth = 0;
+        t.content = NULL;
         
         transmissions.push_back(t);
     }
@@ -55,45 +57,52 @@ void ofApp::exit() {
 //--------------------------------------------------------------
 void ofApp::update(){
     float deltaTime = ofGetLastFrameTime();
-    int randomIndexToAdd = floor(ofRandom(transmissions.size()));
-    for(int k = 0; k < transmissions.size(); k++){
+    float time = ofGetElapsedTimef();
+    
+    //sort pipe
+    if (randomPipe.size() == 0) {
+        for (int i = 0; i < contents.size(); i++) {
+            randomPipe.push_back(i);
+        }
+        random_shuffle(randomPipe.begin(), randomPipe.end());
+    }
+    
+    for(int k = 0; k < transmissions.size() && randomPipe.size() > 0; k++){
         Transmission * t = &transmissions[k];
         
-        if(t->x < -t->messageWidth){
-            t->message.clear();
-            t->posX.clear();
-            
-            if(messages.size() > 0 && k == randomIndexToAdd){
-                //set message
-                string m = *messages[0];
-                messages.erase(messages.begin());
-                
-                for(int i = 0; i < fonts.size(); i++){
-                    vector<ofPath> filled = fonts[i].getStringAsPoints(m, true, true);
-                    vector<ofPath> outilined = fonts[i].getStringAsPoints(m, true, false);
-                    
-                    t->message.push_back(filled);
-                
-                    for(int j = 0; j < t->message[i].size(); j++){
-                        vector<ofPolyline> p = outilined[j].getOutline();
-                        int x = p.size() > 0 ? p[0].getCentroid2D().x : 0;
-                        if(i==0)
-                            t->posX.push_back(x);
-                        t->message[i][j].translate(glm::vec2(-x, 0));
-                    }
-                }
-                t->messageWidth = fonts[0].getStringBoundingBox(m, 0, 0).width;
-                t->x = t->canvas->getWidth();
+        //exclude content
+        if(t->content){
+            if(t->content->x < -t->content->messageWidth){
+                t->content->inUse = false;
+                t->content = NULL;
             }
         }
         
-        t->x -= deltaTime * 100;
+        //attach content
+        if(t->content == NULL){
+            int index = randomPipe.size()-1;
+            while(index > 0 && contents[randomPipe[index]]->inUse){
+                index--;
+            }
+            
+            Content * content = contents[randomPipe[index]];
+            randomPipe.pop_back();
+            
+            t->content = content;
+            content->inUse = true;
+            t->content->x = t->canvas->getWidth();
+        }
+        
+        //draw content
+        t->content->x -= deltaTime * 100;
         t->canvas->begin();
             ofClear(0);
-            if(t->message.size() > 0){
-                for (int i = 0; i < t->message[0].size(); i++) {
-                    int randomFont = floor(ofRandom(t->message.size()));
-                    t->message[randomFont][i].draw(t->x + t->posX[i], t->canvas->getHeight() * 3 / 4);
+            ofSetColor(0);
+            if(t->content->paths.size() > 0){
+                for (int i = 0; i < t->content->paths[0].size(); i++) {
+                    float noise = ofNoise((float)i / 20.0f, (float)k/10.0f, time);
+                    int randomFont = floor(noise*t->content->paths.size());
+                    t->content->paths[randomFont][i].draw(t->content->x + t->content->posX[i], t->canvas->getHeight() * 3 / 4);
                 }
             }
         t->canvas->end();
@@ -103,6 +112,7 @@ void ofApp::update(){
 
 //--------------------------------------------------------------
 void ofApp::draw(){
+    ofClear(255);
     int y = 0;
     for(int i = 0; i < transmissions.size(); i++){
         Transmission t = transmissions[i];
@@ -111,16 +121,35 @@ void ofApp::draw(){
         t.canvas->draw(0, y, w, h);
         y += h + 10;
     }
+    
+    
+    int x = ofGetWidth()-200;
+    ofDrawBitmapStringHighlight(ofToString(contents.size()) + " mensagens recebidas", x, 15);
+    ofDrawBitmapStringHighlight(ofToString(randomPipe.size()) + " na fila", x, 36);
+    
+    //draw in reverse, as the last is the first message to appear
+    ofSetColor(0);
+    for(int i = randomPipe.size()-1; i >= 0; i--){
+        int y = 55 + (randomPipe.size() - 1 - i) * 20;
+        ofDrawBitmapString(ofToString(randomPipe.size() - i) + " " + contents[randomPipe[i]]->text, x, y);
+    }
 }
 
 //--------------------------------------------------------------
 void ofApp::receiveMessage(shared_ptr<string> message) {
-    messages.push_back(message);
+    Content * content = new Content();
+    content->setup(message, &fonts);
+    contents.push_back(content);
+    randomPipe.push_back(contents.size()-1);
 }
 
 //--------------------------------------------------------------
 void ofApp::loadData(){
-    ofLoadURLAsync(configXml.getChild("URL").getValue(),"frases");
+    if(createdAtMs == 0){
+        ofLoadURLAsync(configXml.getChild("URL_ALL").getValue(),"frases");
+    }else{
+        ofLoadURLAsync(configXml.getChild("URL_NEW").getValue()+createdAtStr,"frases");
+    }
 }
 
 //--------------------------------------------------------------
@@ -138,9 +167,11 @@ void ofApp::urlResponse(ofHttpResponse & response){
                 //this timestamp is not timezone accurate
                 time_t time = mktime(&tm);
                 
-                cout << "-----" << endl;
-                cout << message["createdAt"] << endl;
-                cout << time << endl;
+                cout << "Loaded: " << message["createdAt"] << " " << message["mensagem"] << endl;
+                if(time > createdAtMs){
+                    createdAtMs = time;
+                    createdAtStr = message["createdAt"];
+                }
             }
         }
     }else{
