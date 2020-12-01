@@ -44,7 +44,7 @@ const requestListener = function (req, res) {
 			if(i%2==0) return;
 			result.push({
 				id: m.ID,
-				messagem: m.Title,
+				mensagem: m.Title,
 				createdAt: m.Created,
 				updatedAt: m.Modified
 			})

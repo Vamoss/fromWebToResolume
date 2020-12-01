@@ -10,11 +10,13 @@ struct Content {
     vector<int> posX;
     int messageWidth;
     float x;
+    int ID;
     string text;
     bool inUse;
     
-    void setup(shared_ptr<string> text, vector<ofTrueTypeFont> * fonts) {
+    void setup(int ID, shared_ptr<string> text, vector<ofTrueTypeFont> * fonts) {
         this->inUse = false;
+        this->ID = ID;
         this->text = *text;
         this->messageWidth = fonts->at(0).getStringBoundingBox(this->text, 0, 0).width;
         
@@ -57,13 +59,13 @@ public:
     vector<Content *> contents;
     
     void keyPressed(int key);
-    void receiveMessage(shared_ptr<string> message);
+    void receiveMessage(int ID, shared_ptr<string> message);
     
     void loadData();
     void urlResponse(ofHttpResponse & response);
     
-    string createdAtStr = "";
-    int createdAtMs = 0;
+    bool hasId(int ID);
+    
     float updateInterval;
     float lastUpdateTime = 0;
     

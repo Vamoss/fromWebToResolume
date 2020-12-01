@@ -14,8 +14,7 @@ void ofApp::setup(){
     cout << "TOTAL............" << configXml.getChild("TOTAL").getIntValue() << endl;
     cout << "FONT_SIZE........" << configXml.getChild("FONT_SIZE").getIntValue() << endl;
     cout << "WIDTH............" << configXml.getChild("WIDTH").getIntValue() << endl;
-    cout << "URL_ALL.........." << configXml.getChild("URL_ALL").getValue() << endl;
-    cout << "URL_NEW.........." << configXml.getChild("URL_NEW").getValue() << endl;
+    cout << "URL.............." << configXml.getChild("URL").getValue() << endl;
     cout << "UPDATE_INTERVAL.." << configXml.getChild("UPDATE_INTERVAL").getFloatValue() << endl;
     
     ofSetFrameRate(configXml.getChild("FPS").getIntValue());
@@ -141,20 +140,16 @@ void ofApp::draw(){
 }
 
 //--------------------------------------------------------------
-void ofApp::receiveMessage(shared_ptr<string> message) {
+void ofApp::receiveMessage(int ID, shared_ptr<string> message) {
     Content * content = new Content();
-    content->setup(message, &fonts);
+    content->setup(ID, message, &fonts);
     contents.push_back(content);
     randomPipe.push_back(contents.size()-1);
 }
 
 //--------------------------------------------------------------
 void ofApp::loadData(){
-    if(createdAtMs == 0){
-        ofLoadURLAsync(configXml.getChild("URL_ALL").getValue(),"frases");
-    }else{
-        ofLoadURLAsync(configXml.getChild("URL_NEW").getValue()+createdAtStr,"frases");
-    }
+    ofLoadURLAsync(configXml.getChild("URL").getValue(),"frases");
 }
 
 //--------------------------------------------------------------
@@ -164,24 +159,27 @@ void ofApp::urlResponse(ofHttpResponse & response){
         ofJson json = ofJson::parse(response.data);
         for(auto & message: json){
             if(!message.empty()){
-                receiveMessage(make_shared<string>(message["mensagem"]));
-                
-                struct tm tm;
-                istringstream ss = istringstream((string)message["createdAt"]);
-                ss >> get_time(&tm, "%Y-%M-%dT%%H:%M:%S");
-                //this timestamp is not timezone accurate
-                time_t time = mktime(&tm);
-                
-                cout << "Loaded: " << message["createdAt"] << " " << message["mensagem"] << endl;
-                if(time > createdAtMs){
-                    createdAtMs = time;
-                    createdAtStr = message["createdAt"];
+                int ID = message["id"].get<int>();
+                if(!hasId(ID)){
+                    shared_ptr<string> text = make_shared<string>(message["mensagem"]);
+                    receiveMessage(ID, text);
+                    
+                    cout << "Loaded: " << ID << " " << *text << endl;
                 }
             }
         }
+        
+        //TODO find messages not in pipe and delete
     }else{
         cout << response.status << " " << response.error << " for request " << response.request.name << endl;
     }
+}
+
+bool ofApp::hasId(int ID){
+    const auto found = find_if(contents.begin(), contents.end(), [ID](const Content * c){
+        return c->ID == ID;
+    });
+    return found != contents.end();
 }
 
 //--------------------------------------------------------------
@@ -203,6 +201,6 @@ void ofApp::keyPressed  (int key){
         };
         
         shared_ptr<string> r = make_shared<string>(v[floor(ofRandom(v.size()))]);
-        receiveMessage(r);
+        receiveMessage(floor(ofRandom(10000, 1000000)), r);
     }
 }

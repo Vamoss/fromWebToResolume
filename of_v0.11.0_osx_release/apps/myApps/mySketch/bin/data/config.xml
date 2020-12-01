@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ROOT>
+  <TOTAL>4</TOTAL>
+  <FONT_SIZE>80</FONT_SIZE>
+  <FPS>60</FPS>
+  <WIDTH>400</WIDTH>
+  <URL>http://localhost:8080/</URL>
+  <UPDATE_INTERVAL>2</UPDATE_INTERVAL>
+</ROOT>
