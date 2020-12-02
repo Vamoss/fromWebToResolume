@@ -1,4 +1,13 @@
-const result = require('dotenv').config()
+//CONFIG
+const path = require('path');
+const dotenvAbsolutePath = path.join(__dirname, '.env');
+const dotenv = require('dotenv').config({
+	path: dotenvAbsolutePath
+});
+if (dotenv.error) {
+	throw dotenv.error;
+}
+console.log(dotenv.parsed)
 
 //Microsoft OAUTH
 const spauth = require('node-sp-auth');
@@ -27,6 +36,12 @@ const requestListener = function (req, res) {
 	if(req.url != "/"){
 		console.error("not found", req.url);
 		res.writeHead(404);
+		res.end();
+		return;
+	}
+	if(!headers){
+		console.error("headers not ready yet");
+		res.writeHead(500);
 		res.end();
 		return;
 	}
