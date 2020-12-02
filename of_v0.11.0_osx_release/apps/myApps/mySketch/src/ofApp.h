@@ -13,9 +13,11 @@ struct Content {
     int ID;
     string text;
     bool inUse;
+    bool shouldDelete;
     
     void setup(int ID, shared_ptr<string> text, vector<ofTrueTypeFont> * fonts) {
         this->inUse = false;
+        this->shouldDelete = false;
         this->ID = ID;
         this->text = *text;
         this->messageWidth = fonts->at(0).getStringBoundingBox(this->text, 0, 0).width;
@@ -51,6 +53,7 @@ public:
     void update();
     void draw();
     void exit();
+    void reset();
     
     ofXml configXml;
     
@@ -64,7 +67,7 @@ public:
     void loadData();
     void urlResponse(ofHttpResponse & response);
     
-    bool hasId(int ID);
+    vector<Content *>::iterator findId(int ID);
     
     float updateInterval;
     float lastUpdateTime = 0;

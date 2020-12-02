@@ -139,6 +139,20 @@ void ofApp::draw(){
     }
 }
 
+void ofApp::reset() {
+    for(int i = 0; i < transmissions.size(); i++){
+        transmissions[i].content = NULL;
+        transmissions[i].canvas->begin();
+            ofClear(0);
+        transmissions[i].canvas->end();
+    }
+    for(int i = 0; i < contents.size(); i++){
+        delete contents[i];
+    }
+    contents.clear();
+    randomPipe.clear();
+}
+
 //--------------------------------------------------------------
 void ofApp::receiveMessage(int ID, shared_ptr<string> message) {
     Content * content = new Content();
@@ -156,30 +170,42 @@ void ofApp::loadData(){
 void ofApp::urlResponse(ofHttpResponse & response){
     if(response.status==200 && response.request.name == "frases"){
         cout << "loaded " << response.data << endl;
+        
+        for (int i = 0; i < contents.size(); i++) {
+            contents[i]->shouldDelete = true;
+        }
+        
         ofJson json = ofJson::parse(response.data);
         for(auto & message: json){
             if(!message.empty()){
                 int ID = message["id"].get<int>();
-                if(!hasId(ID)){
+                vector<Content *>::iterator foundIterator = findId(ID);
+                if(foundIterator == contents.end()){
                     shared_ptr<string> text = make_shared<string>(message["mensagem"]);
                     receiveMessage(ID, text);
                     
                     cout << "Loaded: " << ID << " " << *text << endl;
+                }else{
+                    (*foundIterator)->shouldDelete = false;
                 }
             }
         }
         
-        //TODO find messages not in pipe and delete
+        //if any message was deleted, reset everything
+        bool shoudReset = false;
+        for (int i = contents.size()-1; i>=0; i--)
+            shoudReset |= contents[i]->shouldDelete;
+        if(shoudReset)
+            reset();
     }else{
         cout << response.status << " " << response.error << " for request " << response.request.name << endl;
     }
 }
 
-bool ofApp::hasId(int ID){
-    const auto found = find_if(contents.begin(), contents.end(), [ID](const Content * c){
+vector<Content *>::iterator ofApp::findId(int ID){
+    return find_if(contents.begin(), contents.end(), [ID](const Content * c){
         return c->ID == ID;
     });
-    return found != contents.end();
 }
 
 //--------------------------------------------------------------
