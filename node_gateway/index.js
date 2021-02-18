@@ -21,7 +21,7 @@ spauth.getAuth(process.env.URL_CREDENTIALS, {
 })
 .then(options => {
 	headers = options.headers;
-	headers['Accept'] = 'application/json;odata=verbose';
+	headers['Accept'] = 'application/json;odata=nometadata';
 	console.log("Sharepoint credentials ready!");
 })
 .catch(error => {
@@ -32,7 +32,7 @@ spauth.getAuth(process.env.URL_CREDENTIALS, {
 //HTTP SERVER
 const http = require('http');
 
-const requestListener = function (req, res) {
+const requestListener = async function (req, res) {
 	if(req.url != "/"){
 		console.error("not found", req.url);
 		res.writeHead(404);
@@ -46,30 +46,62 @@ const requestListener = function (req, res) {
 		return;
 	}
 	console.log("new request", req.url);
+	var startTime = new Date().getTime();
     res.setHeader('Content-Type', 'application/json');
 	res.writeHead(200);
-	request.get({
-		url: process.env.URL_DATA,
+	var result = await loadUrl(process.env.URL_DATA, []);
+	res.end(JSON.stringify(result));
+	console.log("loaded", result.length, "in", new Date().getTime()-startTime, "ms");
+}
+
+const loadUrl = async function (url, arr) {
+	console.log("Loading", url);
+	return request.get({
+		url: url,
 		headers: headers
-	}).then(response => {
-		var result = [];
-		var obj = JSON.parse(response).d;
-		obj.results.forEach((m, i)=>{
-			//ignore list titles
-			if(i%2==0) return;
-			result.push({
+	}).then(async response => {
+		var obj = JSON.parse(response);
+		obj.value.forEach((m, i)=>{
+
+			let message = m.Title;
+			
+			if(message == null) return;
+
+			message = truncateOnWord(message, 150);
+
+			arr.push({
 				id: m.ID,
-				mensagem: m.Title,
+				mensagem: message,
 				createdAt: m.Created,
 				updatedAt: m.Modified
 			})
+
 		})
-		res.end(JSON.stringify(result));
+		if(obj["odata.nextLink"] && obj["odata.nextLink"] != url){
+			return await loadUrl(obj["odata.nextLink"], arr);
+		}else{
+			return arr;
+		}
 	}).catch(error => {
 		console.error("Sharepoint get error!");
 		console.error(error);
-		res.end(JSON.stringify([]));
+		return arr;
 	});
+}
+
+function truncateOnWord(str, limit) {
+	if(str.length > limit){
+		var trimmable = '\u0009\u000A\u000B\u000C\u000D\u0020\u00A0\u1680\u180E\u2000\u2001\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200A\u202F\u205F\u2028\u2029\u3000\uFEFF';
+		var reg = new RegExp('(?=[' + trimmable + '])');
+		var words = str.split(reg);
+		var count = 0;
+		return words.filter(function(word) {
+			count += word.length;
+			return count <= limit;
+		}).join('') + '...';
+	}else{
+		return str;
+	}
 }
 
 const server = http.createServer(requestListener);
